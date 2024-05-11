@@ -1,0 +1,227 @@
+     1                                  ;****************************************************************************************************************************
+     2                                  ;This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License  *
+     3                                  ;version 3 as published by the Free Software Foundation.  This program is distributed in the hope that it will be useful,   *
+     4                                  ;but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See   *
+     5                                  ;the GNU General Public License for more details A copy of the GNU General Public License v3 is available here:             *
+     6                                  ;<https://www.gnu.org/licenses/>.                                                                                           *
+     7                                  ;****************************************************************************************************************************
+     8                                  
+     9                                  ;========1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3**
+    10                                  ;Author information
+    11                                  ;  Author name: Kanji Oyama
+    12                                  ;  Author email: kanjioyama@csu.fullerton.edu
+    13                                  ;
+    14                                  ;Program information
+    15                                  ;  Program name: Manager
+    16                                  ;  Programming languages: x86 Assembly, C, C++
+    17                                  ;  Date program began: 2024-Mar-8
+    18                                  ;  Date of last update: 2024-Mar-15
+    19                                  ;  Files in this program: r.sh, manager.asm, input_array.asm, compute_mean.asm, compute_variance.cpp, isfloat.asm, output_array.c
+    20                                  ;                           main.c
+    21                                  ;  Testing: Alpha testing completed.  All functions are correct.
+    22                                  ;  Status: Ready for release to customers
+    23                                  ;
+    24                                  ;Purpose
+    25                                  ;  This program takes in user float value input and places them into an array, calculates the mean and variance of the array, and
+    26                                  ;  then returns the variance.
+    27                                  ;
+    28                                  ;This file:
+    29                                  ;  File name: manager.asm
+    30                                  ;  Language: X86-64
+    31                                  ;  Max page width: 124 columns
+    32                                  ;  Assemble (standard):
+    33                                  ;       nasm -f elf64 -l manager.lis -o manager.o manager.asm
+    34                                  ;       nasm -f elf64 -l input_array.lis -o input_array.o input_array.asm
+    35                                  ;       nasm -f elf64 -l isfloat.lis -o isfloat.o isfloat.asm
+    36                                  ;       nasm -f elf64 -l compute_mean.lis -o compute_mean.o compute_mean.asm 
+    37                                  ;       
+    38                                  ;  Optimal print specification: Landscape, 7 points, monospace, 8½x11 paper
+    39                                  ;  Prototype of this function: double manager();
+    40                                  ;========1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3**
+    41                                  
+    42                                  extern printf
+    43                                  extern input_array
+    44                                  extern compute_mean
+    45                                  extern output_array
+    46                                  extern compute_variance
+    47                                  
+    48                                  global manager
+    49                                  
+    50                                  array_size equ 12
+    51                                  
+    52                                  segment .data
+    53 00000000 546869732070726F67-         intro_line_one db "This program will manage your arrays of 64-bit floats", 10, 0
+    53 00000009 72616D2077696C6C20-
+    53 00000012 6D616E61676520796F-
+    53 0000001B 757220617272617973-
+    53 00000024 206F662036342D6269-
+    53 0000002D 7420666C6F6174730A-
+    53 00000036 00                 
+    54 00000037 466F72207468652061-         intro_line_two db "For the array enter a sequence of 64-bit floats separated by white space", 10, 0
+    54 00000040 7272617920656E7465-
+    54 00000049 722061207365717565-
+    54 00000052 6E6365206F66203634-
+    54 0000005B 2D62697420666C6F61-
+    54 00000064 747320736570617261-
+    54 0000006D 746564206279207768-
+    54 00000076 697465207370616365-
+    54 0000007F 0A00               
+    55 00000081 416674657220746865-         intro_line_three db "After the last input press enter followed by Control+D:", 10, 0
+    55 0000008A 206C61737420696E70-
+    55 00000093 757420707265737320-
+    55 0000009C 656E74657220666F6C-
+    55 000000A5 6C6F77656420627920-
+    55 000000AE 436F6E74726F6C2B44-
+    55 000000B7 3A0A00             
+    56 000000BA 200A00                      empty_line db " ", 10, 0
+    57 000000BD 5468657365206E756D-         outro_line_one db "These numbers were received and placed into an array", 10, 0
+    57 000000C6 626572732077657265-
+    57 000000CF 207265636569766564-
+    57 000000D8 20616E6420706C6163-
+    57 000000E1 656420696E746F2061-
+    57 000000EA 6E2061727261790A00 
+    58 000000F3 546865206D65616E20-         average_output db "The mean of the numbers in the array is %lf", 10 ,0
+    58 000000FC 6F6620746865206E75-
+    58 00000105 6D6265727320696E20-
+    58 0000010E 746865206172726179-
+    58 00000117 20697320256C660A00 
+    59 00000120 546865207661726961-         outro_line_two db "The variance of the inputted number is %lf", 10, 0
+    59 00000129 6E6365206F66207468-
+    59 00000132 6520696E7075747465-
+    59 0000013B 64206E756D62657220-
+    59 00000144 697320256C660A00   
+    60                                  
+    61                                  segment .bss
+    62                                      align 64
+    63 00000000 <res 340h>                  backup_storage_area resb 832
+    64 00000340 <res 60h>                   an_array resq array_size
+    65                                      
+    66                                  
+    67                                  segment .text
+    68                                  
+    69                                  manager:
+    70                                  ; Backup GPR's
+    71 00000000 55                          push rbp
+    72 00000001 4889E5                      mov rbp, rsp
+    73 00000004 53                          push rbx
+    74 00000005 51                          push rcx
+    75 00000006 52                          push rdx
+    76 00000007 57                          push rdi
+    77 00000008 56                          push rsi
+    78 00000009 4150                        push r8
+    79 0000000B 4151                        push r9
+    80 0000000D 4152                        push r10
+    81 0000000F 4153                        push r11
+    82 00000011 4154                        push r12
+    83 00000013 4155                        push r13
+    84 00000015 4156                        push r14
+    85 00000017 4157                        push r15
+    86 00000019 9C                          pushf
+    87                                  
+    88                                  ; Backup registers
+    89 0000001A B807000000                  mov rax, 7
+    90 0000001F BA00000000                  mov rdx, 0
+    91 00000024 0FAE2425[00000000]          xsave [backup_storage_area]
+    92                                  
+    93                                  ; Output the line informing the user that this program will manage 64-bit floats
+    94 0000002C B800000000                  mov rax, 0
+    95 00000031 48BF-                       mov rdi, intro_line_one
+    95 00000033 [0000000000000000] 
+    96 0000003B E8(00000000)                call printf
+    97                                  ; Output the name of who it was brought to you by (Kanji Oyama)
+    98 00000040 48BF-                       mov rdi, intro_line_two
+    98 00000042 [3700000000000000] 
+    99 0000004A E8(00000000)                call printf
+   100                                  ; Output the line informing the user to press ctrl+D after their last input
+   101 0000004F 48BF-                       mov rdi, intro_line_three
+   101 00000051 [8100000000000000] 
+   102 00000059 E8(00000000)                call printf
+   103                                  
+   104                                  ; Call input_array to input the user's values into the array
+   105 0000005E 48BF-                       mov rdi, an_array
+   105 00000060 [4003000000000000] 
+   106 00000068 BE0C000000                  mov rsi, array_size
+   107 0000006D E8(00000000)                call input_array
+   108 00000072 4989C5                      mov r13, rax
+   109                                  
+   110                                  ; Print an empty line for visual aesthetic
+   111 00000075 48BF-                       mov rdi, empty_line
+   111 00000077 [BA00000000000000] 
+   112 0000007F E8(00000000)                call printf
+   113                                  
+   114                                  ; Output the line letting the user know that their values are placed into the array
+   115 00000084 48BF-                       mov rdi, outro_line_one
+   115 00000086 [BD00000000000000] 
+   116 0000008E E8(00000000)                call printf
+   117                                  
+   118                                  ; Call our C function output_array to display our array for the user
+   119 00000093 B800000000                  mov rax, 0
+   120 00000098 48BF-                       mov rdi, an_array
+   120 0000009A [4003000000000000] 
+   121 000000A2 4C89EE                      mov rsi, r13
+   122 000000A5 E8(00000000)                call output_array
+   123                                  
+   124                                  ; Call the compute_mean function to calculate the mean of our array values
+   125 000000AA B800000000                  mov rax, 0
+   126 000000AF 48BF-                       mov rdi, an_array
+   126 000000B1 [4003000000000000] 
+   127 000000B9 4C89EE                      mov rsi, r13
+   128 000000BC E8(00000000)                call compute_mean
+   129 000000C1 F2440F10F8                  movsd xmm15, xmm0
+   130                                  ; Output the mean of the numbers for the user to see
+   131 000000C6 B801000000                  mov rax, 1
+   132 000000CB 48BF-                       mov rdi, average_output
+   132 000000CD [F300000000000000] 
+   133 000000D5 F2410F10C7                  movsd xmm0, xmm15
+   134 000000DA E8(00000000)                call printf
+   135 000000DF F2440F10F8                  movsd xmm15, xmm0
+   136                                  
+   137                                  ; Call compute_variance to compute the variance of the values in our c++ function
+   138 000000E4 B800000000                  mov rax, 0
+   139 000000E9 48BF-                       mov rdi, an_array
+   139 000000EB [4003000000000000] 
+   140 000000F3 4C89EE                      mov rsi, r13
+   141 000000F6 E8(00000000)                call compute_variance
+   142 000000FB F2440F10F8                  movsd xmm15, xmm0
+   143                                  ; Output the line letting our user know what the variance of your values are
+   144 00000100 B801000000                  mov rax, 1
+   145 00000105 48BF-                       mov rdi, outro_line_two
+   145 00000107 [2001000000000000] 
+   146 0000010F F2410F10C7                  movsd xmm0, xmm15
+   147 00000114 E8(00000000)                call printf
+   148                                  
+   149                                  ; Print an empty line for aesthetic purposes
+   150 00000119 48BF-                       mov rdi, empty_line
+   150 0000011B [BA00000000000000] 
+   151 00000123 E8(00000000)                call printf
+   152                                  
+   153                                  ; Push our output onto the stack so it doesn't get erased
+   154 00000128 6A00                        push qword 0
+   155 0000012A F2440F113C24                movsd [rsp], xmm15
+   156                                  
+   157                                  ; Restore xmm registers
+   158 00000130 B807000000                  mov rax, 7
+   159 00000135 BA00000000                  mov rdx, 0
+   160 0000013A 0FAE2C25[00000000]          xrstor [backup_storage_area]
+   161                                  
+   162                                  ; Retrieve our return value from rsp
+   163 00000142 F20F100424                  movsd xmm0, [rsp]
+   164 00000147 58                          pop rax
+   165                                      
+   166                                  ; Restore the GPR's
+   167 00000148 9D                          popf
+   168 00000149 415F                        pop r15
+   169 0000014B 415E                        pop r14
+   170 0000014D 415D                        pop r13
+   171 0000014F 415C                        pop r12
+   172 00000151 415B                        pop r11
+   173 00000153 415A                        pop r10
+   174 00000155 4159                        pop r9
+   175 00000157 4158                        pop r8
+   176 00000159 5E                          pop rsi
+   177 0000015A 5F                          pop rdi
+   178 0000015B 5A                          pop rdx
+   179 0000015C 59                          pop rcx
+   180 0000015D 5B                          pop rbx
+   181 0000015E 5D                          pop rbp   ;Restore rbp to the base of the activation record of the caller program
+   182 0000015F C3                          ret

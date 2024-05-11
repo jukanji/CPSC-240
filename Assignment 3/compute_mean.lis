@@ -1,0 +1,131 @@
+     1                                  ;****************************************************************************************************************************
+     2                                  ;This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License  *
+     3                                  ;version 3 as published by the Free Software Foundation.  This program is distributed in the hope that it will be useful,   *
+     4                                  ;but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See   *
+     5                                  ;the GNU General Public License for more details A copy of the GNU General Public License v3 is available here:             *
+     6                                  ;<https://www.gnu.org/licenses/>.                                                                                           *
+     7                                  ;****************************************************************************************************************************
+     8                                  
+     9                                  ;========1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3**
+    10                                  ;Author information
+    11                                  ;  Author name: Kanji Oyama
+    12                                  ;  Author email: kanjioyama@csu.fullerton.edu
+    13                                  ;
+    14                                  ;Program information
+    15                                  ;  Program name: compute_mean
+    16                                  ;  Programming languages: x86 Assembly
+    17                                  ;  Date program began: 2024-Mar-8
+    18                                  ;  Date of last update: 2024-Mar-15
+    19                                  ;  Files in this program: compute_mean
+    20                                  ;  Testing: Alpha testing completed.  All functions are correct.
+    21                                  ;  Status: Ready for release to customers
+    22                                  ;
+    23                                  ;Purpose
+    24                                  ;  This program calculates the mean of all values inputted by the user in the array    
+    25                                  ;
+    26                                  ;This file:
+    27                                  ;  File name: compute_mean.asm
+    28                                  ;  Language: X86-64
+    29                                  ;  Max page width: 124 columns
+    30                                  ;  Assemble (standard):
+    31                                  ;       nasm -f elf64 -l compute_mean.lis -o compute_mean.o compute_mean.asm
+    32                                  ;
+    33                                  ;  Optimal print specification: Landscape, 7 points, monospace, 8½x11 paper
+    34                                  ;  Prototype of this function: double compute_mean(double array[], int array_size)
+    35                                  ;========1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3**
+    36                                  
+    37                                  global compute_mean
+    38                                  
+    39                                  extern printf
+    40                                  
+    41                                  segment .data
+    42 00000000 546869732069732074-         first_array db "This is the first element in the array %lf", 10 ,0
+    42 00000009 686520666972737420-
+    42 00000012 656C656D656E742069-
+    42 0000001B 6E2074686520617272-
+    42 00000024 617920256C660A00   
+    43                                  segment .bss
+    44                                      align 64
+    45 00000000 <res 340h>                  backup_storage_area resb 832
+    46                                  
+    47                                  
+    48                                  segment .text
+    49                                  
+    50                                  compute_mean:
+    51                                  
+    52                                  ; Backup GPR's
+    53 00000000 55                          push rbp
+    54 00000001 4889E5                      mov rbp, rsp
+    55 00000004 53                          push rbx
+    56 00000005 51                          push rcx
+    57 00000006 52                          push rdx
+    58 00000007 57                          push rdi
+    59 00000008 56                          push rsi
+    60 00000009 4150                        push r8
+    61 0000000B 4151                        push r9
+    62 0000000D 4152                        push r10
+    63 0000000F 4153                        push r11
+    64 00000011 4154                        push r12
+    65 00000013 4155                        push r13
+    66 00000015 4156                        push r14
+    67 00000017 4157                        push r15
+    68 00000019 9C                          pushf
+    69                                  
+    70                                  ; Backup registers
+    71 0000001A B807000000                  mov rax, 7
+    72 0000001F BA00000000                  mov rdx, 0
+    73 00000024 0FAE2425[00000000]          xsave [backup_storage_area]
+    74                                  
+    75                                  ; Move the parameters to a safe place 
+    76 0000002C 4989FF                      mov r15, rdi    ; holds the array
+    77 0000002F 4989F6                      mov r14, rsi    ; holds the number of elements in the array
+    78 00000032 41BD00000000                mov r13, 0
+    79                                  
+    80                                  ; Expecting one float value
+    81                                  ;    mov rax, 1
+    82                                  
+    83                                  ; Start the loop to add all the elements together
+    84                                  loop_start:
+    85 00000038 4D39F5                      cmp r13, r14
+    86 0000003B 740B                        je exit
+    87 0000003D F2470F583CEF                addsd xmm15, [r15 + r13 * 8]
+    88 00000043 49FFC5                      inc r13
+    89 00000046 EBF0                        jmp loop_start
+    90                                  
+    91                                  exit:
+    92 00000048 B801000000                  mov rax, 1
+    93 0000004D 48BF-                       mov rdi, first_array
+    93 0000004F [0000000000000000] 
+    94 00000057 F24C0F2AF6                  cvtsi2sd xmm14, rsi     ; convert our number of elements into a float
+    95 0000005C F2450F5EFE                  divsd xmm15, xmm14
+    96                                  
+    97                                  ; Push answer onto stack to retrieve it
+    98 00000061 6A00                        push qword 0
+    99 00000063 F2440F113C24                movsd [rsp], xmm15
+   100                                  
+   101                                  ; Restore all floating point numbers
+   102 00000069 B807000000                  mov rax, 7
+   103 0000006E BA00000000                  mov rdx, 0
+   104 00000073 0FAE2C25[00000000]          xrstor [backup_storage_area]
+   105                                  
+   106                                  ; we want our mean value to return to the manager
+   107 0000007B F20F100424                  movsd xmm0, [rsp]
+   108 00000080 58                          pop rax
+   109                                  
+   110                                  ; Restore the GPR's
+   111 00000081 9D                          popf
+   112 00000082 415F                        pop r15
+   113 00000084 415E                        pop r14
+   114 00000086 415D                        pop r13
+   115 00000088 415C                        pop r12
+   116 0000008A 415B                        pop r11
+   117 0000008C 415A                        pop r10
+   118 0000008E 4159                        pop r9
+   119 00000090 4158                        pop r8
+   120 00000092 5E                          pop rsi
+   121 00000093 5F                          pop rdi
+   122 00000094 5A                          pop rdx
+   123 00000095 59                          pop rcx
+   124 00000096 5B                          pop rbx
+   125 00000097 5D                          pop rbp   ;Restore rbp to the base of the activation record of the caller program
+   126 00000098 C3                          ret

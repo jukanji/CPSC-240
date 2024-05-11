@@ -1,0 +1,164 @@
+     1                                  ;****************************************************************************************************************************
+     2                                  ;This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License  *
+     3                                  ;version 3 as published by the Free Software Foundation.  This program is distributed in the hope that it will be useful,   *
+     4                                  ;but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See   *
+     5                                  ;the GNU General Public License for more details A copy of the GNU General Public License v3 is available here:             *
+     6                                  ;<https://www.gnu.org/licenses/>.                                                                                           *
+     7                                  ;****************************************************************************************************************************
+     8                                  
+     9                                  ;========1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3**
+    10                                  ;Author information
+    11                                  ;  Author name: Kanji Oyama
+    12                                  ;  Author email: kanjioyama@csu.fullerton.edu
+    13                                  ;
+    14                                  ;Program information
+    15                                  ;  Program name: input_array
+    16                                  ;  Programming languages: x86 Assembly
+    17                                  ;  Date program began: 2024-Mar-8
+    18                                  ;  Date of last update: 2024-Mar-15
+    19                                  ;  Files in this program: input_array
+    20                                  ;  Testing: Alpha testing completed.  All functions are correct.
+    21                                  ;  Status: Ready for release to customers
+    22                                  ;
+    23                                  ;Purpose
+    24                                  ;  This program calculates inputs the values given by the user into an array  
+    25                                  ;
+    26                                  ;This file:
+    27                                  ;  File name: input_array
+    28                                  ;  Language: X86-64
+    29                                  ;  Max page width: 124 columns
+    30                                  ;  Assemble (standard):
+    31                                  ;       nasm -f elf64 -l input_array.lis -o input_array.o input_array.asm
+    32                                  ;
+    33                                  ;  Optimal print specification: Landscape, 7 points, monospace, 8½x11 paper
+    34                                  ;  Prototype of this function: double input_array(double array[], int array_size)
+    35                                  ;========1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3**
+    36                                  
+    37                                  extern printf
+    38                                  
+    39                                  extern input_array
+    40                                  
+    41                                  extern scanf
+    42                                  
+    43                                  extern printf
+    44                                  
+    45                                  extern isfloat
+    46                                  
+    47                                  extern atof
+    48                                  
+    49                                  segment .data
+    50 00000000 2573                        format_string db "%s"
+    51 00000002 546865206C61737420-         tryagain_prompt db "The last input was invalid and not entered into the array.", 10, 0
+    51 0000000B 696E70757420776173-
+    51 00000014 20696E76616C696420-
+    51 0000001D 616E64206E6F742065-
+    51 00000026 6E746572656420696E-
+    51 0000002F 746F20746865206172-
+    51 00000038 7261792E0A00       
+    52                                  
+    53                                  segment .bss
+    54                                      align 64
+    55 00000000 <res 340h>                  backup_storage_area resb 832
+    56                                  
+    57                                  segment .text
+    58                                  
+    59                                  input_array:
+    60                                  ; Backup GPR's
+    61 00000000 55                          push rbp
+    62 00000001 4889E5                      mov rbp, rsp
+    63 00000004 53                          push rbx
+    64 00000005 51                          push rcx
+    65 00000006 52                          push rdx
+    66 00000007 57                          push rdi
+    67 00000008 56                          push rsi
+    68 00000009 4150                        push r8
+    69 0000000B 4151                        push r9
+    70 0000000D 4152                        push r10
+    71 0000000F 4153                        push r11
+    72 00000011 4154                        push r12
+    73 00000013 4155                        push r13
+    74 00000015 4156                        push r14
+    75 00000017 4157                        push r15
+    76 00000019 9C                          pushf
+    77                                  
+    78                                  ; Backup registers
+    79 0000001A B807000000                  mov rax, 7
+    80 0000001F BA00000000                  mov rdx, 0
+    81 00000024 0FAE2425[00000000]          xsave [backup_storage_area]
+    82                                  
+    83                                  ; Save the passed parameters to a safe place and initialize our counter r15
+    84 0000002C 4989FF                      mov r15, rdi    ; r15 holds our array
+    85 0000002F 4989F6                      mov r14, rsi    ; r14 max array size
+    86 00000032 41BD00000000                mov r13, 0      ; r13 contains our counter
+    87 00000038 4881EC00040000              sub rsp, 1024
+    88                                  
+    89                                  fill_array:
+    90 0000003F B800000000                  mov rax, 0
+    91 00000044 48BF-                       mov rdi, format_string
+    91 00000046 [0000000000000000] 
+    92 0000004E 4889E6                      mov rsi, rsp
+    93 00000051 E8(00000000)                call scanf
+    94                                  
+    95                                      ; Check for ctrl+D input
+    96 00000056 4898                        cdqe
+    97 00000058 4883F8FF                    cmp rax, -1
+    98 0000005C 7446                        je exit
+    99                                  
+   100                                      ; Check if input is a float
+   101 0000005E B800000000                  mov rax, 0
+   102 00000063 4889E7                      mov rdi, rsp
+   103 00000066 E8(00000000)                call isfloat
+   104 0000006B 4883F800                    cmp rax, 0
+   105 0000006F 741D                        je error
+   106                                  
+   107                                      ; Convert the input into a float
+   108 00000071 B800000000                  mov rax, 0
+   109 00000076 4889E7                      mov rdi, rsp
+   110 00000079 E8(00000000)                call atof
+   111                                  
+   112                                      ; Copy the float into our array
+   113 0000007E F2430F1104EF                movsd [r15 + r13 * 8], xmm0
+   114                                  
+   115                                      ; Increment our counter and compare with our capacity
+   116 00000084 49FFC5                      inc r13
+   117 00000087 4D39F5                      cmp r13, r14
+   118 0000008A 7CB3                        jl fill_array
+   119                                  
+   120                                      ; Jump to exit if we are full
+   121 0000008C EB16                        jmp exit
+   122                                  
+   123                                  error:
+   124 0000008E B800000000                  mov rax, 0
+   125 00000093 48BF-                       mov rdi, tryagain_prompt
+   125 00000095 [0200000000000000] 
+   126 0000009D E8(00000000)                call printf
+   127 000000A2 EB9B                        jmp fill_array
+   128                                  
+   129                                  exit:
+   130 000000A4 4881C400040000              add rsp, 1024
+   131                                  
+   132                                  ; Restore all floating point numbers
+   133 000000AB B807000000                  mov rax, 7
+   134 000000B0 BA00000000                  mov rdx, 0
+   135 000000B5 0FAE2C25[00000000]          xrstor [backup_storage_area]
+   136                                  
+   137                                  ; Move our value to rax
+   138 000000BD 4C89E8                      mov rax, r13    ; outputs the current number of elements in the array
+   139                                  
+   140                                  ; Restore the GPR's
+   141 000000C0 9D                          popf
+   142 000000C1 415F                        pop r15
+   143 000000C3 415E                        pop r14
+   144 000000C5 415D                        pop r13
+   145 000000C7 415C                        pop r12
+   146 000000C9 415B                        pop r11
+   147 000000CB 415A                        pop r10
+   148 000000CD 4159                        pop r9
+   149 000000CF 4158                        pop r8
+   150 000000D1 5E                          pop rsi
+   151 000000D2 5F                          pop rdi
+   152 000000D3 5A                          pop rdx
+   153 000000D4 59                          pop rcx
+   154 000000D5 5B                          pop rbx
+   155 000000D6 5D                          pop rbp   ;Restore rbp to the base of the activation record of the caller program
+   156 000000D7 C3                          ret
